@@ -43,17 +43,21 @@ impl Decoder for WdtCodec {
         let pos = {
             let mut cur = io::Cursor::new(&src);
 
+            let mut final_pos = cur.position();
             match Request::decode(&mut cur) {
                 Ok(req) => {
                     ret = Ok(Some(req));
+                    final_pos = cur.position();
                 },
                 Err(e) => {
                     let errmsg = format!("{}", e);
-                    ret = Err(io::Error::new(io::ErrorKind::InvalidData, errmsg));
+                    error!("codec: decode error: {}", errmsg.as_str());
+                    //ret = Err(io::Error::new(io::ErrorKind::InvalidData, errmsg));
+                    ret = Ok(None);
                 }
             }
 
-            cur.position() as usize    
+            final_pos as usize    
         };
 
         src.split_to(pos);

@@ -6,6 +6,7 @@ extern crate tokio_core;
 extern crate tokio_proto;
 extern crate tokio_service;
 extern crate futures;
+extern crate futures_cpupool;
 
 mod service;
 
@@ -15,7 +16,7 @@ fn start() {
     let addr = "127.0.0.1:12345".parse().unwrap();
     info!("creating new server");
     let srv = service::Server::new(addr);
-    info!("starting new server");
+    info!("starting new server, tid = {}", utils::get_threadid());
     srv.serve();
 }
 

@@ -21,31 +21,34 @@ use common::utils;
 use tokio_core::reactor::Core;
 use threadpool::ThreadPool;
 
-fn chat(id: usize, core: &mut Core, client: service::Client) -> errors::Result<()> {
-    for n in 0..10 {
-        let msg = format!("{} hello {}", id, n);
+fn chat(core: &mut Core, client: service::Client) -> errors::Result<()> {
+    for n in 0..2500 {
+        let msg = format!("{} hello {}", common::utils::get_threadid(), n);
         let rsp = client.call(core, msg.as_str())?;
-        println!("rsp: {}", rsp);
+        if n % 1000 == 0 {
+            println!("{}", n);
+        }
+        //println!("rsp: {}", rsp);
     }
 
     Ok(())
 }
 
-fn start_chat(id: usize) -> errors::Result<()> {
+fn start_chat() -> errors::Result<()> {
     let mut core = Core::new().unwrap();
     let addr = "127.0.0.1:12345".parse().unwrap();
     let client = service::Client::connect(&mut core, &addr)?;
 
     info!("Client connected at: {}", client.get_addr_ref());
 
-    chat(id, &mut core, client)
+    chat(&mut core, client)
 }
 
 fn run() -> errors::Result<()> {
-    let pool = ThreadPool::new(4);
-    for n in 0..pool.max_count() {
+    let pool = ThreadPool::new(16);
+    for _ in 0..pool.max_count() {
         pool.execute(move ||{
-            let _ = start_chat(n).or_else(|e| -> Result<(),()>{
+            let _ = start_chat().or_else(|e| -> Result<(),()>{
                 println!("err: {}", e);
                 Ok(())
             });

@@ -10,6 +10,7 @@ extern crate bytes;
 extern crate tokio_proto;
 extern crate tokio_io;
 extern crate rand;
+extern crate thread_id;
 
 pub mod utils;
 pub mod request;
