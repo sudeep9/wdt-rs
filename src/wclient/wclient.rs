@@ -12,12 +12,14 @@ extern crate tokio_core;
 extern crate tokio_proto;
 extern crate tokio_service;
 extern crate futures;
+extern crate threadpool;
 
 mod service;
 mod errors;
 
 use common::utils;
 use tokio_core::reactor::Core;
+use threadpool::ThreadPool;
 
 fn chat(core: &mut Core, client: service::Client) -> errors::Result<()> {
     let rsp = client.call(core, "Hello")?;
@@ -41,6 +43,15 @@ fn start_chat() -> errors::Result<()> {
 }
 
 fn run() -> errors::Result<()> {
+    let pool = ThreadPool::new(4);
+    for _ in 0..pool.max_count() {
+        pool.execute(||{
+            start_chat().or_else(|e|{
+                println!("err: {}", e);
+                Ok(())
+            });
+        })
+    }
     start_chat()
 }
 
