@@ -7,7 +7,7 @@ pub fn init_logging(filename: &str) {
     CombinedLogger::init(
         vec![
             WriteLogger::new(
-                LogLevelFilter::Info,
+                LogLevelFilter::Trace,
                 Config::default(),
                 std::fs::File::create(filename).unwrap()
             ),
