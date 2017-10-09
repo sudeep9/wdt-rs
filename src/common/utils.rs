@@ -1,6 +1,7 @@
 
 use simplelog::{Config, WriteLogger, CombinedLogger, LogLevelFilter};
 use std;
+use rand;
 
 pub fn init_logging(filename: &str) {
     CombinedLogger::init(
@@ -12,4 +13,9 @@ pub fn init_logging(filename: &str) {
             ),
         ]
     ).unwrap();
+}
+
+pub fn random_sleep() {
+    let dur = rand::random::<u8>();
+    std::thread::sleep(std::time::Duration::from_millis(dur as u64));
 }

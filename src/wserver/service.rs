@@ -18,8 +18,9 @@ impl Server {
     }
 
     pub fn serve(&self) {
-        TcpServer::new(common::proto::WdtProto, self.addr)
-        .serve(|| {
+        let mut srv = TcpServer::new(common::proto::WdtProto, self.addr);
+        srv.threads(10);
+        srv.serve(|| {
             info!("New connection received");
             Ok(Inner)
          });
@@ -36,6 +37,7 @@ impl Service for Inner {
 
     fn call(&self, req: Self::Request) -> Self::Future {
         info!("new service call received");
+        common::utils::random_sleep();
         Box::new(future::ok(req))
     }
 }

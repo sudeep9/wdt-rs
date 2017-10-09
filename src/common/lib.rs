@@ -9,6 +9,7 @@ extern crate rmpv;
 extern crate bytes;
 extern crate tokio_proto;
 extern crate tokio_io;
+extern crate rand;
 
 pub mod utils;
 pub mod request;

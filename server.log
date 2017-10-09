@@ -1,22 +1,126 @@
-09:47:35 [INFO] creating new server
-09:47:35 [INFO] starting new server
-09:47:37 [INFO] New connection received
-09:47:37 [INFO] codec: decode len = 6
-09:47:37 [INFO] new service call received
-09:47:37 [INFO] codec: encode len = 5
-09:47:37 [INFO] codec: decode len = 13
-09:47:37 [INFO] new service call received
-09:47:37 [INFO] codec: encode len = 12
-09:47:37 [INFO] codec: decode len = 22
-09:47:37 [INFO] new service call received
-09:47:37 [INFO] codec: encode len = 21
-09:48:17 [INFO] New connection received
-09:48:17 [INFO] codec: decode len = 6
-09:48:17 [INFO] new service call received
-09:48:17 [INFO] codec: encode len = 5
-09:48:17 [INFO] codec: decode len = 13
-09:48:17 [INFO] new service call received
-09:48:17 [INFO] codec: encode len = 12
-09:48:17 [INFO] codec: decode len = 22
-09:48:17 [INFO] new service call received
-09:48:17 [INFO] codec: encode len = 21
+10:43:57 [INFO] creating new server
+10:43:57 [INFO] starting new server
+10:44:03 [INFO] New connection received
+10:44:03 [INFO] New connection received
+10:44:03 [INFO] New connection received
+10:44:03 [INFO] New connection received
+10:44:03 [INFO] codec: decode len = 10
+10:44:03 [INFO] new service call received
+10:44:03 [INFO] codec: encode len = 9
+10:44:03 [INFO] codec: decode len = 10
+10:44:03 [INFO] new service call received
+10:44:03 [INFO] codec: encode len = 9
+10:44:03 [INFO] codec: decode len = 10
+10:44:03 [INFO] new service call received
+10:44:03 [INFO] codec: encode len = 9
+10:44:03 [INFO] codec: decode len = 10
+10:44:03 [INFO] new service call received
+10:44:04 [INFO] codec: encode len = 9
+10:44:04 [INFO] codec: decode len = 10
+10:44:04 [INFO] new service call received
+10:44:04 [INFO] codec: encode len = 9
+10:44:04 [INFO] codec: decode len = 10
+10:44:04 [INFO] new service call received
+10:44:04 [INFO] codec: encode len = 9
+10:44:04 [INFO] codec: decode len = 10
+10:44:04 [INFO] new service call received
+10:44:04 [INFO] codec: encode len = 9
+10:44:04 [INFO] codec: decode len = 10
+10:44:04 [INFO] new service call received
+10:44:04 [INFO] codec: encode len = 9
+10:44:04 [INFO] codec: decode len = 10
+10:44:04 [INFO] new service call received
+10:44:05 [INFO] codec: encode len = 9
+10:44:05 [INFO] codec: decode len = 10
+10:44:05 [INFO] new service call received
+10:44:05 [INFO] codec: encode len = 9
+10:44:05 [INFO] codec: decode len = 10
+10:44:05 [INFO] new service call received
+10:44:05 [INFO] codec: encode len = 9
+10:44:05 [INFO] codec: decode len = 10
+10:44:05 [INFO] new service call received
+10:44:05 [INFO] codec: encode len = 9
+10:44:05 [INFO] codec: decode len = 10
+10:44:05 [INFO] new service call received
+10:44:05 [INFO] codec: encode len = 9
+10:44:05 [INFO] codec: decode len = 10
+10:44:05 [INFO] new service call received
+10:44:05 [INFO] codec: encode len = 9
+10:44:05 [INFO] codec: decode len = 10
+10:44:05 [INFO] new service call received
+10:44:05 [INFO] codec: encode len = 9
+10:44:05 [INFO] codec: decode len = 10
+10:44:05 [INFO] new service call received
+10:44:05 [INFO] codec: encode len = 9
+10:44:05 [INFO] codec: decode len = 10
+10:44:05 [INFO] new service call received
+10:44:05 [INFO] codec: encode len = 9
+10:44:05 [INFO] codec: decode len = 10
+10:44:05 [INFO] new service call received
+10:44:05 [INFO] codec: encode len = 9
+10:44:05 [INFO] codec: decode len = 10
+10:44:05 [INFO] new service call received
+10:44:06 [INFO] codec: encode len = 9
+10:44:06 [INFO] codec: decode len = 10
+10:44:06 [INFO] new service call received
+10:44:06 [INFO] codec: encode len = 9
+10:44:06 [INFO] codec: decode len = 10
+10:44:06 [INFO] new service call received
+10:44:06 [INFO] codec: encode len = 9
+10:44:06 [INFO] codec: decode len = 10
+10:44:06 [INFO] new service call received
+10:44:06 [INFO] codec: encode len = 9
+10:44:06 [INFO] codec: decode len = 10
+10:44:06 [INFO] new service call received
+10:44:06 [INFO] codec: encode len = 9
+10:44:06 [INFO] codec: decode len = 10
+10:44:06 [INFO] new service call received
+10:44:06 [INFO] codec: encode len = 9
+10:44:06 [INFO] codec: decode len = 10
+10:44:06 [INFO] new service call received
+10:44:06 [INFO] codec: encode len = 9
+10:44:06 [INFO] codec: decode len = 10
+10:44:06 [INFO] new service call received
+10:44:06 [INFO] codec: encode len = 9
+10:44:06 [INFO] codec: decode len = 10
+10:44:06 [INFO] new service call received
+10:44:06 [INFO] codec: encode len = 9
+10:44:06 [INFO] codec: decode len = 10
+10:44:06 [INFO] new service call received
+10:44:06 [INFO] codec: encode len = 9
+10:44:06 [INFO] codec: decode len = 10
+10:44:06 [INFO] new service call received
+10:44:07 [INFO] codec: encode len = 9
+10:44:07 [INFO] codec: decode len = 10
+10:44:07 [INFO] new service call received
+10:44:07 [INFO] codec: encode len = 9
+10:44:07 [INFO] codec: decode len = 10
+10:44:07 [INFO] new service call received
+10:44:07 [INFO] codec: encode len = 9
+10:44:07 [INFO] codec: decode len = 10
+10:44:07 [INFO] new service call received
+10:44:07 [INFO] codec: encode len = 9
+10:44:07 [INFO] codec: decode len = 10
+10:44:07 [INFO] new service call received
+10:44:07 [INFO] codec: encode len = 9
+10:44:07 [INFO] codec: decode len = 10
+10:44:07 [INFO] new service call received
+10:44:08 [INFO] codec: encode len = 9
+10:44:08 [INFO] codec: decode len = 10
+10:44:08 [INFO] new service call received
+10:44:08 [INFO] codec: encode len = 9
+10:44:08 [INFO] codec: decode len = 10
+10:44:08 [INFO] new service call received
+10:44:08 [INFO] codec: encode len = 9
+10:44:08 [INFO] codec: decode len = 10
+10:44:08 [INFO] new service call received
+10:44:08 [INFO] codec: encode len = 9
+10:44:08 [INFO] codec: decode len = 10
+10:44:08 [INFO] new service call received
+10:44:08 [INFO] codec: encode len = 9
+10:44:08 [INFO] codec: decode len = 10
+10:44:08 [INFO] new service call received
+10:44:08 [INFO] codec: encode len = 9
+10:44:08 [INFO] codec: decode len = 10
+10:44:08 [INFO] new service call received
+10:44:08 [INFO] codec: encode len = 9
