@@ -1,10 +1,8 @@
 
 use std::net::SocketAddr;
 use std::io;
-use std;
 use tokio_service::{Service, NewService};
 use tokio_proto::TcpServer;
-use futures::{Future, future};
 use futures_cpupool::{CpuPool, CpuFuture};
 use common;
 
@@ -20,7 +18,7 @@ impl Server {
     }
 
     pub fn serve(&self) {
-        let mut srv = TcpServer::new(common::proto::WdtProto, self.addr);
+        let srv = TcpServer::new(common::proto::WdtProto, self.addr);
         srv.serve(Inner::new(5));
     }
 }
