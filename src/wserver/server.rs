@@ -2,15 +2,17 @@
 
 use std::net::SocketAddr;
 use futures::{Sink, Future, Stream};
-//use futures_cpupool::{CpuPool, CpuFuture};
+use futures_cpupool::{CpuPool, CpuFuture};
 use tokio_io::{AsyncRead};
 use tokio_io::codec::{FramedRead, FramedWrite};
 use tokio_core::net::TcpListener;
 use tokio_core::reactor::Core;
 use common::codec;
+use common::utils;
 
 pub struct Server {
     addr: SocketAddr,
+    work: CpuPool,
 }
 
 fn str_rev(s: &mut String) {
@@ -24,6 +26,7 @@ impl Server {
     pub fn new(addr: SocketAddr) -> Self {
         Server{
             addr: addr,
+            work: CpuPool::new(5),
         }
     }
 
@@ -42,9 +45,12 @@ impl Server {
             let fw = FramedWrite::new(wr, codec::RevCodec); 
             let fr = FramedRead::new(rd, codec::RevCodec); 
             let processed = fr.and_then(|mut m|{
-                str_rev(&mut m.data);
-                println!("id = {}", m.reqid);
-                Ok(m)
+                self.work.spawn_fn(||{
+                    utils::random_sleep();
+                    str_rev(&mut m.data);
+                    println!("tid = {}, id = {}", utils::get_threadid(), m.reqid);
+                    Ok(m)
+                })
             });
 
             Ok((processed, fw))

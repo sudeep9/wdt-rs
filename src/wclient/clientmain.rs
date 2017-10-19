@@ -33,12 +33,27 @@ fn start_chat() -> errors::Result<()> {
     Ok(())
 }
 
+fn run_multiple_client() -> errors::Result<()> {
+    let pool = threadpool::ThreadPool::new(5);
+    for _ in 0..10 {
+        pool.execute(||{
+            let _ = start_chat().map_err(|e|{ 
+                println!("error = {}", e);
+            });
+        });
+    }
+    pool.join();
+
+    Ok(())    
+}
+
 fn run() -> errors::Result<()> {
-    let _ = start_chat().or_else(|e| -> Result<(),()>{
-        println!("err: {}", e);
-        Ok(())
-    });
-    Ok(())
+    run_multiple_client()
+    //let _ = start_chat().or_else(|e| -> Result<(),()>{
+    //    println!("err: {}", e);
+    //    Ok(())
+    //});
+    //Ok(())
 }
 
 fn main() {

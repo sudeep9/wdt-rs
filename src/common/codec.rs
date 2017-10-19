@@ -5,7 +5,6 @@ use std::io;
 use bytes::{BufMut, BytesMut, LittleEndian};
 use byteorder;
 use byteorder::ByteOrder;
-use std;
 
 pub struct RevRequest {
     pub reqid: u32,
