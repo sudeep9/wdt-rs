@@ -16,53 +16,19 @@ extern crate tokio_service;
 extern crate futures;
 extern crate threadpool;
 
-mod service;
+mod client;
 mod errors;
 
 use common::utils;
-use tokio_core::reactor::Core;
-use threadpool::ThreadPool;
-use futures::{Future, Sink};
-use tokio_io::codec::{Encoder, Decoder, FramedParts, FramedRead, FramedWrite};
-
 use common::codec;
 
 
 fn start_chat() -> errors::Result<()> {
-    let mut core = Core::new().unwrap();
     let addr = "127.0.0.1:12345".parse().unwrap();
-    let client = service::Client::connect(&mut core, &addr)?;
+    let mut client = client::Client::connect(&addr)?;
 
     let msg = codec::RevRequest{reqid: 10, data: "Hello".to_owned()};
-    /*
-    let fparts = FramedParts {
-        inner: client.stream,
-        readbuf: bytes::BytesMut::new(),
-        writebuf: bytes::BytesMut::new(),
-    };
-    */
-
-    let mut c = codec::RevCodec;
-
-    let mut buf = bytes::BytesMut::new();
-    buf.reserve(1024);
-    c.encode(msg, &mut buf)?;
-    
-    let fut = tokio_io::io::write_all(client.stream, buf).and_then(|(s, b)|{
-        tokio_io::io::read(s, b).and_then(|(r, mut b, sz)|{
-            let mut cd = codec::RevCodec;
-            cd.decode(&mut b).and_then(|rsp|{
-                if rsp.is_some() {
-                    let m = rsp.unwrap();
-                    println!("id = {}, data = {}", m.reqid, m.data);
-                }
-                Ok(())
-            })
-        })
-    });
-
-
-    core.run(fut)?;
+    client.call(msg)?;
 
     Ok(())
 }

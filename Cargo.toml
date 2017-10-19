@@ -9,7 +9,7 @@ path = "src/wserver/srvmain.rs"
 
 [[bin]]
 name = "wclient"
-path = "src/wclient/wclient.rs"
+path = "src/wclient/clientmain.rs"
 
 [lib]
 name = "common"
