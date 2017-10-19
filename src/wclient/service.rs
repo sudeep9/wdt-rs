@@ -8,10 +8,11 @@ use tokio_core::reactor::Core;
 use tokio_core::net::TcpStream;
 use futures::Future;
 use tokio_service::Service;
+use errors;
+use tokio_io;
 
 pub struct Client {
-    addr: SocketAddr,
-    svc: ClientService<TcpStream, common::proto::WdtProto>
+    pub stream: TcpStream,
 }
 
 impl Client {
@@ -19,27 +20,26 @@ impl Client {
         let handle = core.handle();
         let addr_copy = addr.clone();
 
-        let fut = TcpClient::new(common::proto::WdtProto)
-        .connect(addr, &handle)
-        .and_then(|cs|{
-            Ok(Client {addr: addr_copy,svc: cs})
+        let fut = TcpStream::connect(&addr, &handle).and_then(|stream|{
+            Ok(Client{
+                stream:stream
+            })
         });
 
         core.run(fut)
     }
 
+    pub fn call(&self, core: &mut Core, s: &str) -> io::Result<usize>{
+        let fut = tokio_io::io::write_all(&self.stream, s.as_bytes()).and_then(|(s, v)|{
+            Ok(v.len())
+        });
+
+        core.run(fut)
+    }
+
+/*
     pub fn get_addr_ref<'a>(&'a self) -> &'a SocketAddr{
         &self.addr
     }
-
-    pub fn call(&self, core: &mut Core, s: &str) -> io::Result<String> {
-        let req = common::request::Request::new(s);
-        let fut = self.svc.call(req)
-        .and_then(|r|{
-            info!("reponse received: {}", r.buf);
-            Ok(r.buf)
-        });
-
-        core.run(fut)
-    }
+*/
 }

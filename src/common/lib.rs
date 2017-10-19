@@ -11,6 +11,7 @@ extern crate tokio_proto;
 extern crate tokio_io;
 extern crate rand;
 extern crate thread_id;
+extern crate byteorder;
 
 pub mod utils;
 pub mod request;

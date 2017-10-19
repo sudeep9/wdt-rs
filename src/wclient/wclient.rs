@@ -8,6 +8,8 @@ extern crate log;
 extern crate error_chain;
 
 extern crate common;
+extern crate bytes;
+extern crate tokio_io;
 extern crate tokio_core;
 extern crate tokio_proto;
 extern crate tokio_service;
@@ -20,47 +22,63 @@ mod errors;
 use common::utils;
 use tokio_core::reactor::Core;
 use threadpool::ThreadPool;
+use futures::{Future, Sink};
+use tokio_io::codec::{Encoder, Decoder, FramedParts, FramedRead, FramedWrite};
 
-fn chat(core: &mut Core, client: service::Client) -> errors::Result<()> {
-    for n in 0..2500 {
-        let msg = format!("{} hello {}", common::utils::get_threadid(), n);
-        let rsp = client.call(core, msg.as_str())?;
-        if n % 1000 == 0 {
-            println!("{}", n);
-        }
-        //println!("rsp: {}", rsp);
-    }
+use common::codec;
 
-    Ok(())
-}
 
 fn start_chat() -> errors::Result<()> {
     let mut core = Core::new().unwrap();
     let addr = "127.0.0.1:12345".parse().unwrap();
     let client = service::Client::connect(&mut core, &addr)?;
 
-    info!("Client connected at: {}", client.get_addr_ref());
+    let msg = codec::RevRequest{reqid: 10, data: "Hello".to_owned()};
+    /*
+    let fparts = FramedParts {
+        inner: client.stream,
+        readbuf: bytes::BytesMut::new(),
+        writebuf: bytes::BytesMut::new(),
+    };
+    */
 
-    chat(&mut core, client)
+    let mut c = codec::RevCodec;
+
+    let mut buf = bytes::BytesMut::new();
+    buf.reserve(1024);
+    c.encode(msg, &mut buf)?;
+    
+    let fut = tokio_io::io::write_all(client.stream, buf).and_then(|(s, b)|{
+        tokio_io::io::read(s, b).and_then(|(r, mut b, sz)|{
+            let mut cd = codec::RevCodec;
+            cd.decode(&mut b).and_then(|rsp|{
+                if rsp.is_some() {
+                    let m = rsp.unwrap();
+                    println!("id = {}, data = {}", m.reqid, m.data);
+                }
+                Ok(())
+            })
+        })
+    });
+
+
+    core.run(fut)?;
+
+    Ok(())
 }
 
 fn run() -> errors::Result<()> {
-    let pool = ThreadPool::new(16);
-    for _ in 0..pool.max_count() {
-        pool.execute(move ||{
-            let _ = start_chat().or_else(|e| -> Result<(),()>{
-                println!("err: {}", e);
-                Ok(())
-            });
-        })
-    }
-    pool.join();
+    let _ = start_chat().or_else(|e| -> Result<(),()>{
+        println!("err: {}", e);
+        Ok(())
+    });
     Ok(())
 }
 
 fn main() {
     utils::init_logging("client.log");
 
+    info!("Starting client");
     if let Err(ref e) = run() {
         println!("error: {}", e);
 
