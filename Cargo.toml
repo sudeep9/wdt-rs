@@ -5,7 +5,7 @@ authors = ["Sudeep Jathar <sudeep.jathar@gmail.com>"]
 
 [[bin]]
 name = "wserver"
-path = "src/wserver/wserver.rs"
+path = "src/wserver/srvmain.rs"
 
 [[bin]]
 name = "wclient"
