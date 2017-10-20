@@ -21,23 +21,29 @@ mod errors;
 
 use common::utils;
 use common::codec;
+use futures::{Future, Sink};
 
 
-fn start_chat() -> errors::Result<()> {
+fn send_val() -> errors::Result<()> {
     let addr = "127.0.0.1:12345".parse().unwrap();
-    let mut client = client::Client::connect(&addr)?;
-
-    let msg = codec::RevRequest{reqid: 10, data: "Hello".to_owned()};
-    client.sync_call(msg)?;
-
+    let client = client::Client::new(addr)?;
+    let msg = codec::RevRequest{
+        reqid: 10,
+        data: "1234".to_owned()
+    };
+    client.call(msg.clone());
+    client.call(msg.clone());
+    client.call(msg.clone());
+    std::thread::sleep(std::time::Duration::from_secs(1));
     Ok(())
 }
 
 fn run_multiple_client() -> errors::Result<()> {
     let pool = threadpool::ThreadPool::new(5);
-    for _ in 0..10 {
+    for _ in 0..1 {
         pool.execute(||{
-            let _ = start_chat().map_err(|e|{ 
+            //let _ = start_chat().map_err(|e|{ 
+            let _ = send_val().map_err(|e|{ 
                 println!("error = {}", e);
             });
         });

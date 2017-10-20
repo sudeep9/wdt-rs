@@ -1,17 +1,85 @@
 
 use std::net::SocketAddr;
 use std::io;
-use tokio_core::reactor::Core;
+use std;
+use std::thread::JoinHandle;
+use tokio_core::reactor::{Core};
 use tokio_core::net::TcpStream;
-use futures::Future;
+use futures::{Future, Sink, Stream};
 use tokio_io;
-use tokio_io::codec::{Encoder, Decoder};
-use common::codec;
+use tokio_io::{AsyncWrite, AsyncRead};
+use tokio_io::codec::{FramedRead, FramedWrite, Encoder, Decoder};
+use common::{codec, utils};
 use bytes;
+use futures;
+use futures::sync::mpsc::{channel, Sender, Receiver};
 
+#[derive(Clone)]
+pub struct Client {
+    tx: Sender<codec::RevRequest>,
+}
+
+impl Client {
+    pub fn new(addr: SocketAddr) -> io::Result<Self> {
+        let val = Client::spawn_io_thread(addr)?;        
+        Ok(Client{
+            tx: val,
+        })
+    }
+
+    pub fn call(&self, msg: codec::RevRequest) {
+        let tx = self.tx.clone();
+        match tx.send(msg).wait() {
+            Err(e) => {println!("Send error = {}", e)},
+            Ok(_) => {}
+        }
+    }
+
+    fn spawn_io_thread(addr: SocketAddr) -> io::Result<Sender<codec::RevRequest>> {
+        let (tx, rx) = channel::<codec::RevRequest>(5);
+
+        println!("Spawing io thread");
+
+        let th = std::thread::spawn(move || -> io::Result<()>{
+            let mut core = Core::new().unwrap();
+            println!("Creating core");
+            let handle = core.handle();
+
+            let conn_fut = TcpStream::connect(&addr, &handle).and_then(|stream|{
+                Ok(stream)
+            });
+
+            println!("About to connect");
+            let stream = core.run(conn_fut)?;
+            println!("Connected");
+
+            let (rd, wr) = stream.split();
+            let fw = FramedWrite::new(wr, codec::RevCodec); 
+            let fr = FramedRead::new(rd, codec::RevCodec); 
+
+            let work_stream = rx.then(|val| -> io::Result<codec::RevRequest>{
+                Ok(val.ok().unwrap())
+            });
+
+            let req_stream = fw.send_all(work_stream).and_then(|f|{
+                println!("sent");
+                Ok(())
+            });
+
+            core.run(req_stream)?;
+
+            Ok(())
+        });
+
+        Ok(tx.clone())
+    }
+}
+
+/*
 pub struct Client {
     pub stream: TcpStream,
-    pub core: Core
+    pub core: Core,
+    pub tx: Option<futures::sync::mpsc::Sender<codec::RevRequest>>,
 }
 
 impl Client {
@@ -26,7 +94,8 @@ impl Client {
         let stream = core.run(fut)?;
         Ok(Client{
             stream: stream,
-            core: core
+            core: core,
+            tx: None,
         }) 
     }
 
@@ -53,9 +122,33 @@ impl Client {
         self.core.run(fut)
     }
 
-/*
-    pub fn get_addr_ref<'a>(&'a self) -> &'a SocketAddr{
-        &self.addr
+    pub fn spawn_io_thread(&mut self) {
+        let (t, r) = futures::sync::mpsc::channel::<codec::RevRequest>(5);
+
+        std::thread::spawn(move ||{
+            let fut = r.and_then(|msg|{
+                let reqid = msg.reqid;
+                let mut c = codec::RevCodec;
+                let mut buf = bytes::BytesMut::new();
+                buf.reserve(1024);
+                let res = c.encode(msg, &mut buf);
+
+                Ok((reqid, buf))
+            }).for_each(|(id, buf)|{
+                println!("n = {} {}", id, buf.len());
+                Ok(())
+            });
+
+            fut.wait()
+        });
+
+        self.tx = Some(t.clone())
     }
-*/
+
+    pub fn call(&self, msg: codec::RevRequest) {
+        let tx = self.tx.as_ref().unwrap().clone();
+        let tid = utils::get_threadid();
+        let res = tx.send(msg).wait();
+    }
 }
+*/

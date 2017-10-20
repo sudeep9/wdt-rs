@@ -41,6 +41,7 @@ impl Server {
 
         let connections = listener.incoming();
         let client_proc = connections.and_then(|(socket, _)|{
+            println!("new connection");
             let (rd, wr) = socket.split();
             let fw = FramedWrite::new(wr, codec::RevCodec); 
             let fr = FramedRead::new(rd, codec::RevCodec); 

@@ -6,6 +6,7 @@ use bytes::{BufMut, BytesMut, LittleEndian};
 use byteorder;
 use byteorder::ByteOrder;
 
+#[derive(Clone)]
 pub struct RevRequest {
     pub reqid: u32,
     pub data: String
@@ -17,7 +18,7 @@ impl Encoder for RevCodec {
     type Item = RevRequest;
     type Error = io::Error;
 
-    fn encode(&mut self, msg: Self::Item, buf: &mut BytesMut) -> io::Result<()> {
+    fn encode(&mut self, msg: Self::Item, buf: &mut BytesMut) -> Result<(), Self::Error> {
         buf.put_u32::<LittleEndian>(msg.reqid);
         let data = msg.data.as_bytes();
         buf.put_u32::<LittleEndian>(data.len() as u32);
