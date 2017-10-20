@@ -8,15 +8,22 @@ use tokio_core::net::TcpStream;
 use futures::{Future, Sink, Stream};
 use tokio_io;
 use tokio_io::{AsyncWrite, AsyncRead};
-use tokio_io::codec::{FramedRead, FramedWrite, Encoder, Decoder};
+use tokio_io::codec::{FramedParts, FramedRead, FramedWrite, Encoder, Decoder};
 use common::{codec, utils};
 use bytes;
 use futures;
 use futures::sync::mpsc::{channel, Sender, Receiver};
+use futures::sync::oneshot;
+use std::collections::HashMap;
+
+struct Payload {
+    req: codec::RevRequest,
+    rsptx: oneshot::Sender<codec::RevRequest>
+}
 
 #[derive(Clone)]
 pub struct Client {
-    tx: Sender<codec::RevRequest>,
+    tx: Sender<Payload>,
 }
 
 impl Client {
@@ -28,15 +35,27 @@ impl Client {
     }
 
     pub fn call(&self, msg: codec::RevRequest) {
+        let (rsptx, rsprx) = oneshot::channel::<codec::RevRequest>();
+        let p = Payload{
+            req: msg,
+            rsptx: rsptx
+        };
+
         let tx = self.tx.clone();
-        match tx.send(msg).wait() {
+        match tx.send(p).wait() {
             Err(e) => {println!("Send error = {}", e)},
             Ok(_) => {}
         }
+
+        /*
+        rsprx.map(|n|{
+            println!("response id = {}, data = {}", n.reqid, n.data);
+        }).wait();
+        */
     }
 
-    fn spawn_io_thread(addr: SocketAddr) -> io::Result<Sender<codec::RevRequest>> {
-        let (tx, rx) = channel::<codec::RevRequest>(5);
+    fn spawn_io_thread(addr: SocketAddr) -> io::Result<Sender<Payload>> {
+        let (tx, rx) = channel::<Payload>(5);
 
         println!("Spawing io thread");
 
@@ -44,6 +63,8 @@ impl Client {
             let mut core = Core::new().unwrap();
             println!("Creating core");
             let handle = core.handle();
+
+            let mut reqmap:HashMap::<u32, oneshot::Sender<codec::RevRequest>> = HashMap::new();
 
             let conn_fut = TcpStream::connect(&addr, &handle).and_then(|stream|{
                 Ok(stream)
@@ -58,7 +79,9 @@ impl Client {
             let fr = FramedRead::new(rd, codec::RevCodec); 
 
             let work_stream = rx.then(|val| -> io::Result<codec::RevRequest>{
-                Ok(val.ok().unwrap())
+                let p = val.ok().unwrap();
+                reqmap.insert(p.req.reqid, p.rsptx);
+                Ok(p.req)
             });
 
             let req_stream = fw.send_all(work_stream).and_then(|f|{
