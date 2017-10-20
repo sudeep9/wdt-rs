@@ -30,7 +30,7 @@ impl Client {
         }) 
     }
 
-    pub fn call(&mut self, msg: codec::RevRequest) -> io::Result<()>{
+    pub fn sync_call(&mut self, msg: codec::RevRequest) -> io::Result<()>{
         let mut c = codec::RevCodec;
 
         let mut buf = bytes::BytesMut::new();

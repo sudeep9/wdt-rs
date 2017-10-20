@@ -28,7 +28,7 @@ fn start_chat() -> errors::Result<()> {
     let mut client = client::Client::connect(&addr)?;
 
     let msg = codec::RevRequest{reqid: 10, data: "Hello".to_owned()};
-    client.call(msg)?;
+    client.sync_call(msg)?;
 
     Ok(())
 }
