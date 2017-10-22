@@ -5,7 +5,7 @@ use std;
 use std::thread::JoinHandle;
 use tokio_core::reactor::{Core};
 use tokio_core::net::TcpStream;
-use futures::{Future, Sink, Stream};
+use futures::{Poll, Async, Future, Sink, Stream};
 use tokio_io;
 use tokio_io::{AsyncWrite, AsyncRead};
 use tokio_io::codec::{FramedParts, FramedRead, FramedWrite, Encoder, Decoder};
@@ -26,6 +26,16 @@ pub struct Client {
     tx: Sender<Payload>,
 }
 
+
+fn encode(msg: codec::RevRequest) -> bytes::BytesMut {
+    let mut cd = codec::RevCodec;
+    let mut buf = bytes::BytesMut::new();
+    buf.reserve(1024);
+    let res = cd.encode(msg, &mut buf);
+    buf
+}
+
+
 impl Client {
     pub fn new(addr: SocketAddr) -> io::Result<Self> {
         let val = Client::spawn_io_thread(addr)?;        
@@ -42,11 +52,15 @@ impl Client {
         };
 
         let tx = self.tx.clone();
+        let mut fut = tx.send(p);
+        fut.poll();
+
+        /*
         match tx.send(p).wait() {
             Err(e) => {println!("Send error = {}", e)},
             Ok(_) => {}
         }
-
+        */
         /*
         rsprx.map(|n|{
             println!("response id = {}, data = {}", n.reqid, n.data);
@@ -80,16 +94,30 @@ impl Client {
 
             let work_stream = rx.then(|val| -> io::Result<codec::RevRequest>{
                 let p = val.ok().unwrap();
-                reqmap.insert(p.req.reqid, p.rsptx);
+                //reqmap.insert(p.req.reqid, p.rsptx);
                 Ok(p.req)
             });
 
-            let req_stream = fw.send_all(work_stream).and_then(|f|{
+            let req_stream = fw.send_all(work_stream).and_then(|f| {
                 println!("sent");
+                Ok(())
+            }).map_err(|e|{
+            });
+
+            handle.spawn(req_stream);
+
+            let read_stream = fr.and_then(|msg|{
+                println!("rsp id = {}, data = {}", msg.reqid, msg.data);
                 Ok(())
             });
 
-            core.run(req_stream)?;
+            let in_stream = read_stream.for_each(|n|{
+                futures::future::result::<(), io::Error>(Ok(()))
+            }).map_err(|e|{});
+
+            handle.spawn(in_stream);
+
+            core.run(futures::future::empty::<(), io::Error>())?;
 
             Ok(())
         });
@@ -97,81 +125,3 @@ impl Client {
         Ok(tx.clone())
     }
 }
-
-/*
-pub struct Client {
-    pub stream: TcpStream,
-    pub core: Core,
-    pub tx: Option<futures::sync::mpsc::Sender<codec::RevRequest>>,
-}
-
-impl Client {
-    pub fn connect(addr: &SocketAddr) -> io::Result<Client> {
-        let mut core = Core::new().unwrap();
-        let handle = core.handle();
-
-        let fut = TcpStream::connect(&addr, &handle).and_then(|stream|{
-            Ok(stream)
-        });
-
-        let stream = core.run(fut)?;
-        Ok(Client{
-            stream: stream,
-            core: core,
-            tx: None,
-        }) 
-    }
-
-    pub fn sync_call(&mut self, msg: codec::RevRequest) -> io::Result<()>{
-        let mut c = codec::RevCodec;
-
-        let mut buf = bytes::BytesMut::new();
-        buf.reserve(1024);
-        c.encode(msg, &mut buf)?;
-        
-        let fut = tokio_io::io::write_all(&self.stream, buf).and_then(|(s, b)|{
-            tokio_io::io::read(s, b).and_then(|(_, mut b, _)|{
-                let mut cd = codec::RevCodec;
-                cd.decode(&mut b).and_then(|rsp|{
-                    if rsp.is_some() {
-                        let m = rsp.unwrap();
-                        println!("id = {}, data = {}", m.reqid, m.data);
-                    }
-                    Ok(())
-                })
-            })
-        });
-
-        self.core.run(fut)
-    }
-
-    pub fn spawn_io_thread(&mut self) {
-        let (t, r) = futures::sync::mpsc::channel::<codec::RevRequest>(5);
-
-        std::thread::spawn(move ||{
-            let fut = r.and_then(|msg|{
-                let reqid = msg.reqid;
-                let mut c = codec::RevCodec;
-                let mut buf = bytes::BytesMut::new();
-                buf.reserve(1024);
-                let res = c.encode(msg, &mut buf);
-
-                Ok((reqid, buf))
-            }).for_each(|(id, buf)|{
-                println!("n = {} {}", id, buf.len());
-                Ok(())
-            });
-
-            fut.wait()
-        });
-
-        self.tx = Some(t.clone())
-    }
-
-    pub fn call(&self, msg: codec::RevRequest) {
-        let tx = self.tx.as_ref().unwrap().clone();
-        let tid = utils::get_threadid();
-        let res = tx.send(msg).wait();
-    }
-}
-*/

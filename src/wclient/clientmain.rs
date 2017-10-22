@@ -7,13 +7,15 @@ extern crate log;
 #[macro_use]
 extern crate error_chain;
 
+#[macro_use]
+extern crate futures;
+
 extern crate common;
 extern crate bytes;
 extern crate tokio_io;
 extern crate tokio_core;
 extern crate tokio_proto;
 extern crate tokio_service;
-extern crate futures;
 extern crate threadpool;
 
 mod client;
@@ -24,26 +26,36 @@ use common::codec;
 use futures::{Future, Sink};
 
 
-fn send_val() -> errors::Result<()> {
-    let addr = "127.0.0.1:12345".parse().unwrap();
-    let client = client::Client::new(addr)?;
+fn send_val(mut client: client::Client) -> errors::Result<()> {
     let msg = codec::RevRequest{
         reqid: 10,
-        data: "1234".to_owned()
+        data: utils::get_threadid()
     };
-    client.call(msg.clone());
-    client.call(msg.clone());
-    client.call(msg.clone());
-    std::thread::sleep(std::time::Duration::from_secs(1));
+
+    let mut n = 0;
+    while n < 10 {
+        let mut msg_clone = msg.clone();
+        msg_clone.reqid += n;
+        client.call(msg_clone);
+        std::thread::sleep(std::time::Duration::from_secs(1));
+        n += 1;
+    }
+    //client.call(msg.clone());
+    println!("Done sending!");
+    std::thread::sleep(std::time::Duration::from_secs(60));
     Ok(())
 }
 
 fn run_multiple_client() -> errors::Result<()> {
+    let addr = "127.0.0.1:12345".parse().unwrap();
+    let client = client::Client::new(addr)?;
+
     let pool = threadpool::ThreadPool::new(5);
-    for _ in 0..1 {
-        pool.execute(||{
+    for _ in 0..5 {
+        let client = client.clone();
+        pool.execute(move ||{
             //let _ = start_chat().map_err(|e|{ 
-            let _ = send_val().map_err(|e|{ 
+            let _ = send_val(client).map_err(|e|{ 
                 println!("error = {}", e);
             });
         });
