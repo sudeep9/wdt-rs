@@ -7,7 +7,6 @@ extern crate log;
 #[macro_use]
 extern crate error_chain;
 
-#[macro_use]
 extern crate futures;
 
 extern crate common;
@@ -23,20 +22,29 @@ mod errors;
 
 use common::utils;
 use common::codec;
-use futures::{Future, Sink};
+use futures::{Future};
 
 
-fn send_val(mut client: client::Client) -> errors::Result<()> {
+fn send_val(id: u32, client: client::Client) -> errors::Result<()> {
     let msg = codec::RevRequest{
         reqid: 10,
         data: utils::get_threadid()
     };
 
     let mut n = 0;
-    while n < 10 {
+    let tid = utils::get_threadid();
+    while n < 1000 {
         let mut msg_clone = msg.clone();
-        msg_clone.reqid += n;
-        client.call(msg_clone);
+        msg_clone.reqid += id * 100 + n;
+        println!("> tid={} reqid = {}, data = {}", tid, msg_clone.reqid, msg_clone.data);
+        //client.call(&msg);
+
+        let _res = client.call(msg_clone).and_then(|m|{
+            println!("< tid={} reqid = {}, data = {}", tid, m.reqid, m.data);
+            Ok(())
+        }).wait();
+        
+
         std::thread::sleep(std::time::Duration::from_secs(1));
         n += 1;
     }
@@ -51,11 +59,11 @@ fn run_multiple_client() -> errors::Result<()> {
     let client = client::Client::new(addr)?;
 
     let pool = threadpool::ThreadPool::new(5);
-    for _ in 0..5 {
+    for i in 0..5 {
         let client = client.clone();
         pool.execute(move ||{
             //let _ = start_chat().map_err(|e|{ 
-            let _ = send_val(client).map_err(|e|{ 
+            let _ = send_val(i, client).map_err(|e|{ 
                 println!("error = {}", e);
             });
         });
