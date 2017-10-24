@@ -13,25 +13,19 @@ extern crate common;
 extern crate bytes;
 extern crate tokio_io;
 extern crate tokio_core;
-extern crate tokio_proto;
-extern crate tokio_service;
 extern crate threadpool;
+extern crate flate2;
 
 mod client;
 mod errors;
 
 use common::utils;
 use common::codec;
-use futures::{Future, Stream};
-use futures::sync::oneshot;
-use futures::stream;
-use futures::future;
-use futures::future::{loop_fn, Loop, Executor};
+use futures::{Future};
 use futures::{Poll, Async};
 use std::ops::Sub;
 use std::io;
 use std::collections::HashMap;
-use tokio_core::reactor::Handle;
 
 
 struct CallFuture {
@@ -42,7 +36,7 @@ struct CallFuture {
     rsp_count: std::rc::Rc<std::cell::RefCell<u32>>,
     //rsp_map: HashMap<usize, oneshot::Receiver<codec::RevRequest>>,
     rsp_map: HashMap<usize, Box<Future<Item=(), Error=()>>>,
-    tid: String,
+    //tid: String,
 }
 
 impl CallFuture {
@@ -54,7 +48,7 @@ impl CallFuture {
             reqid: reqid_start,
             rsp_count: std::rc::Rc::new(std::cell::RefCell::new(0)),
             rsp_map: HashMap::new(),
-            tid: utils::get_threadid(),
+            //tid: utils::get_threadid(),
         }
     }
 
@@ -103,7 +97,7 @@ impl Future for CallFuture {
 
                 let rsp_count = self.rsp_count.clone();
                 let fut = self.client.call(msg).then(move |res|{
-                    res.and_then(|m|{
+                    let _ = res.and_then(|_m|{
                         //println!("< id = {}", m.reqid);
                         Ok(())
                     });
@@ -118,38 +112,29 @@ impl Future for CallFuture {
                 self.reqid += 1;
                 self.sent_count += 1;
             }
+        }else{
+            if self.sent_count == rsp_count {
+                return Ok(Async::Ready(()));
+            }
         }
 
         return self.poll_responses();
-
-        return Ok(Async::NotReady);
     }
 }
 
 
 fn send_val(id: u32, client: client::Client) -> errors::Result<()> {
-    let data = vec![1 as u8; 1024 * 1024];
-    let msg = codec::RevRequest{
-        reqid: 10,
-        data: data
-    };
-
-    let mut n = 0;
-    let tid = utils::get_threadid();
-    let max_calls = 5000;
+    let max_calls = 2000;
     let fut = CallFuture::new(client, max_calls, id * max_calls);
-    fut.wait();
+    let _ = fut.wait();
 
-    //client.call(msg.clone());
     println!("Done sending!");
-
-    //std::thread::sleep(std::time::Duration::from_secs(60));
     Ok(())
 }
 
 fn run_multiple_client() -> errors::Result<()> {
-    //let addr = "127.0.0.1:12345".parse().unwrap();
-    let addr = "172.16.21.109:12345".parse().unwrap();
+    let addr = "127.0.0.1:12345".parse().unwrap();
+    //let addr = "172.16.21.109:12345".parse().unwrap();
     let client = client::Client::new(addr)?;
 
     let start = std::time::Instant::now();

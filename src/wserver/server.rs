@@ -2,13 +2,12 @@
 
 use std::net::SocketAddr;
 use futures::{Sink, Future, Stream};
-use futures_cpupool::{CpuPool, CpuFuture};
+use futures_cpupool::{CpuPool};
 use tokio_io::{AsyncRead};
 use tokio_io::codec::{FramedRead, FramedWrite};
 use tokio_core::net::TcpListener;
 use tokio_core::reactor::Core;
 use common::codec;
-use common::utils;
 use std::io;
 
 pub struct Server {
