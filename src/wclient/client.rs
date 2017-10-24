@@ -41,8 +41,7 @@ impl Client {
         };
 
         let tx = self.tx.clone();
-        let mut fut = tx.send(p);
-        let _res = fut.poll();
+        let _res = tx.send(p).wait();
 
         rsprx
         
@@ -54,7 +53,7 @@ impl Client {
     }
 
     fn spawn_io_thread(addr: SocketAddr) -> io::Result<Sender<Payload>> {
-        let (tx, rx) = channel::<Payload>(5);
+        let (tx, rx) = channel::<Payload>(2);
 
         println!("Spawing io thread");
 
@@ -101,8 +100,13 @@ impl Client {
                 //println!("rsp id = {}, data = {}", msg.reqid, msg.data);
                 let mut map = map_clone.as_ref().borrow_mut();
                 match map.remove(&msg.reqid) {
-                    Some(tx) => {let _r = tx.send(msg);},
-                    None => {println!("## id = {}, data = {}", msg.reqid, msg.data);}
+                    Some(tx) => {
+                        match tx.send(msg) {
+                            Ok(_) => {},
+                            Err(_) => {println!("rsp not sent");}
+                        }
+                    },
+                    None => {println!("## id = {}, data len = {}", msg.reqid, msg.data.len());}
                 };
                 Ok(())
             });

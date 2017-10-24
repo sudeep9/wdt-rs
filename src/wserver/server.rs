@@ -9,6 +9,7 @@ use tokio_core::net::TcpListener;
 use tokio_core::reactor::Core;
 use common::codec;
 use common::utils;
+use std::io;
 
 pub struct Server {
     addr: SocketAddr,
@@ -34,7 +35,7 @@ impl Server {
         return &self.addr;
     }
 
-    pub fn serve(&self) {
+    pub fn serve(&self) -> io::Result<()> {
         let mut core = Core::new().unwrap();
 
         let listener = TcpListener::bind(&self.addr, &core.handle()).unwrap();
@@ -47,9 +48,8 @@ impl Server {
             let fr = FramedRead::new(rd, codec::RevCodec); 
             let processed = fr.and_then(|mut m|{
                 self.work.spawn_fn(||{
-                    utils::random_sleep();
-                    str_rev(&mut m.data);
-                    println!("tid = {}, id = {}", utils::get_threadid(), m.reqid);
+                    m.data.reverse();
+                    //println!("id = {}, data = {}", m.reqid, m.data);
                     Ok(m)
                 })
             });
@@ -57,11 +57,13 @@ impl Server {
             Ok((processed, fw))
         });
 
-        let server = client_proc.for_each(|(proc_stream, fw)|{
-            fw.send_all(proc_stream).and_then(|_|{
+        let server = client_proc.for_each(|(proc_stream, fw)| {
+            fw.send_all(proc_stream).then(|_|{
+                println!("rsp done");
                 Ok(())
             })
         });
-        core.run(server).unwrap();
+
+        core.run(server)
     }
 }

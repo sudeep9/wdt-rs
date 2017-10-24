@@ -22,41 +22,68 @@ mod errors;
 
 use common::utils;
 use common::codec;
-use futures::{Future};
+use futures::{Future, Stream};
+use futures::sync::oneshot;
+use futures::stream;
+use futures::future;
+use std::ops::Sub;
 
+
+fn wait_for_response(count: &mut i32, s: Vec<oneshot::Receiver<codec::RevRequest>>) -> Vec<oneshot::Receiver<codec::RevRequest>> {
+    let rsp_stream = stream::futures_unordered(s);
+    //println!("stream count = {}", rsp_stream.len());
+    let mut itr = rsp_stream.wait();
+    while let Some(item) = itr.next() {
+        item.and_then(|m|{
+            *count += 1;
+            //println!("count = {}", count);
+            Ok(())
+        });
+    }
+
+    let rspvec = Vec::<oneshot::Receiver<codec::RevRequest>>::new();
+    rspvec
+} 
 
 fn send_val(id: u32, client: client::Client) -> errors::Result<()> {
+    let data = vec![1 as u8; 4 * 1024 * 1024];
     let msg = codec::RevRequest{
         reqid: 10,
-        data: utils::get_threadid()
+        data: data
     };
 
     let mut n = 0;
     let tid = utils::get_threadid();
-    while n < 1000 {
+    let mut rspvec = Vec::<oneshot::Receiver<codec::RevRequest>>::new();
+    let mut count = 0;
+    while n < 1000000 {
         let mut msg_clone = msg.clone();
-        msg_clone.reqid += id * 100 + n;
-        println!("> tid={} reqid = {}, data = {}", tid, msg_clone.reqid, msg_clone.data);
+        msg_clone.reqid += id * 1000000 + n;
+        //println!("> tid={} reqid = {}, data = {}", tid, msg_clone.reqid, msg_clone.data);
         //client.call(&msg);
 
-        let _res = client.call(msg_clone).and_then(|m|{
-            println!("< tid={} reqid = {}, data = {}", tid, m.reqid, m.data);
-            Ok(())
-        }).wait();
-        
+        let fut = client.call(msg_clone);
+        rspvec.push(fut);
 
-        std::thread::sleep(std::time::Duration::from_secs(1));
+        if n % 100 == 0 {
+            rspvec = wait_for_response(&mut count, rspvec);
+        }
+        
         n += 1;
     }
     //client.call(msg.clone());
-    println!("Done sending!");
-    std::thread::sleep(std::time::Duration::from_secs(60));
+    println!("Done sending!", );
+    println!("wait done!, count = {}", count);
+
+    //std::thread::sleep(std::time::Duration::from_secs(60));
     Ok(())
 }
 
 fn run_multiple_client() -> errors::Result<()> {
     let addr = "127.0.0.1:12345".parse().unwrap();
     let client = client::Client::new(addr)?;
+
+    let start = std::time::Instant::now();
 
     let pool = threadpool::ThreadPool::new(5);
     for i in 0..5 {
@@ -69,6 +96,8 @@ fn run_multiple_client() -> errors::Result<()> {
         });
     }
     pool.join();
+    let end = std::time::Instant::now();
+    println!("Elapsed time = {:?}", end.sub(start));
 
     Ok(())    
 }

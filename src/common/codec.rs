@@ -9,7 +9,7 @@ use byteorder::ByteOrder;
 #[derive(Clone)]
 pub struct RevRequest {
     pub reqid: u32,
-    pub data: String
+    pub data: Vec<u8>
 }
 
 pub struct RevCodec;
@@ -19,10 +19,12 @@ impl Encoder for RevCodec {
     type Error = io::Error;
 
     fn encode(&mut self, msg: Self::Item, buf: &mut BytesMut) -> Result<(), Self::Error> {
+        if buf.remaining_mut() < (8 + msg.data.len()) {
+            buf.reserve(8 + msg.data.len());
+        }
         buf.put_u32::<LittleEndian>(msg.reqid);
-        let data = msg.data.as_bytes();
-        buf.put_u32::<LittleEndian>(data.len() as u32);
-        buf.put_slice(data);
+        buf.put_u32::<LittleEndian>(msg.data.len() as u32);
+        buf.put_slice(&msg.data);
         Ok(())
     }
 }
@@ -39,7 +41,7 @@ impl RevCodec {
         
         let string_bytes = &refbuf[8..(8 + data_len as usize)];
 
-        let data = String::from_utf8(Vec::from(string_bytes)).unwrap();
+        let data = Vec::from(string_bytes);
 
         let msg = RevRequest {
             reqid: reqid,
