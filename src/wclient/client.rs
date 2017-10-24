@@ -34,6 +34,7 @@ impl Client {
     }
 
     pub fn call(&self, msg_clone: codec::RevRequest) -> oneshot::Receiver<codec::RevRequest> {
+        //let msg_clone = msg.clone();
         let (rsptx, rsprx) = oneshot::channel::<codec::RevRequest>();
         let p = Payload{
             req: msg_clone,
@@ -53,7 +54,7 @@ impl Client {
     }
 
     fn spawn_io_thread(addr: SocketAddr) -> io::Result<Sender<Payload>> {
-        let (tx, rx) = channel::<Payload>(2);
+        let (tx, rx) = channel::<Payload>(1);
 
         println!("Spawing io thread");
 
@@ -97,7 +98,7 @@ impl Client {
 
             let map_clone = reqmap.clone();
             let read_stream = fr.and_then(move |msg|{
-                //println!("rsp id = {}, data = {}", msg.reqid, msg.data);
+                //println!("## rsp id = {}, data = {}", msg.reqid, msg.data.len());
                 let mut map = map_clone.as_ref().borrow_mut();
                 match map.remove(&msg.reqid) {
                     Some(tx) => {
