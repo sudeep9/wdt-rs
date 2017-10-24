@@ -26,11 +26,12 @@ use futures::{Future, Stream};
 use futures::sync::oneshot;
 use futures::stream;
 use futures::future;
-use futures::future::{loop_fn, Loop};
+use futures::future::{loop_fn, Loop, Executor};
 use futures::{Poll, Async};
 use std::ops::Sub;
 use std::io;
 use std::collections::HashMap;
+use tokio_core::reactor::Handle;
 
 
 struct CallFuture {
@@ -38,8 +39,10 @@ struct CallFuture {
     n: u32,
     sent_count: u32,
     reqid: u32,
-    rsp_count: u32,
-    rsp_map: HashMap<usize, oneshot::Receiver<codec::RevRequest>>,
+    rsp_count: std::rc::Rc<std::cell::RefCell<u32>>,
+    //rsp_map: HashMap<usize, oneshot::Receiver<codec::RevRequest>>,
+    rsp_map: HashMap<usize, Box<Future<Item=(), Error=()>>>,
+    tid: String,
 }
 
 impl CallFuture {
@@ -49,42 +52,35 @@ impl CallFuture {
             n: n,
             sent_count: 0,
             reqid: reqid_start,
-            rsp_count: 0,
+            rsp_count: std::rc::Rc::new(std::cell::RefCell::new(0)),
             rsp_map: HashMap::new(),
+            tid: utils::get_threadid(),
         }
     }
 
-    fn poll_responses(&mut self) -> Poll<(), io::Error> {
-        //println!("polling responses");
-        if self.rsp_count == self.sent_count && self.sent_count == self.n{
-            println!("rsp_count == sent_count {}", self.rsp_count);
-            return Ok(Async::Ready(()));
-        }
+    fn poll_responses(&mut self) -> Poll<(),io::Error> {
+        let mut done_id = 0 as usize;
+        let mut found = false;
 
-        let mut done_fut =  Vec::<usize>::new();
-        println!("rsp_map len = {}", self.rsp_map.len());
-        for (i, fut) in self.rsp_map.iter_mut() {
+        for (i, fut) in &mut self.rsp_map {
             match fut.poll() {
-                Ok(Async::NotReady) => {
+                Ok(Async::NotReady) => {},
+                Ok(Async::Ready(_)) => {
+                    done_id = *i;
+                    found = true;
+                    break;
                 },
-                Ok(Async::Ready(m)) => {
-                    //println!("< id = {}, data len = {}", m.reqid, m.data.len());
-                    self.rsp_count += 1;
-                    done_fut.push(*i);
-                    drop(m);
-                },
-                Err(e) => {
-                    println!("Error = {}", e);
-                    return Ok(Async::NotReady);
+                Err(_) => {
+                    break;
                 }
             }
         }
 
-        for i in done_fut {
-            self.rsp_map.remove(&i);
-        }
+        if found {
+            self.rsp_map.remove(&done_id);
+        } 
 
-        return Ok(Async::NotReady);
+        Ok(Async::NotReady)
     }
 }
 
@@ -93,29 +89,43 @@ impl Future for CallFuture {
     type Error = io::Error;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        //println!("polling started");
+        //println!("polling");
+        let rsp_count = *(self.rsp_count.as_ref().borrow());
+        if rsp_count % 1000 == 0 {
+            println!("s = {}, r = {}", self.sent_count, rsp_count);
+        }
         if self.sent_count < self.n {
-            if self.sent_count - self.rsp_count < 30 {
+            if self.sent_count - rsp_count < 50 {
                 let msg = codec::RevRequest{
                     reqid: self.reqid,
-                    data: vec![1 as u8; 1024 * 1024], 
+                    data: vec![1 as u8; 4 * 1024 * 1024], 
                 };
 
-                //println!("calling");
-                let mut rsp_fut = self.client.call(msg);
-                
-                //println!("pushing in rsp map");
-                self.rsp_map.insert(self.reqid as usize, rsp_fut);
-                self.sent_count += 1;
+                let rsp_count = self.rsp_count.clone();
+                let fut = self.client.call(msg).then(move |res|{
+                    res.and_then(|m|{
+                        //println!("< id = {}", m.reqid);
+                        Ok(())
+                    });
+                    let mut count = rsp_count.as_ref().borrow_mut();
+                    *count += 1;
+                    let r: std::result::Result<(),()> = Ok(());
+                    r
+                });
+
+                self.rsp_map.insert(self.reqid as usize, Box::new(fut));
+
                 self.reqid += 1;
+                self.sent_count += 1;
             }
         }
-        return self.poll_responses();
 
+        return self.poll_responses();
 
         return Ok(Async::NotReady);
     }
 }
+
 
 fn send_val(id: u32, client: client::Client) -> errors::Result<()> {
     let data = vec![1 as u8; 1024 * 1024];
@@ -126,21 +136,20 @@ fn send_val(id: u32, client: client::Client) -> errors::Result<()> {
 
     let mut n = 0;
     let tid = utils::get_threadid();
-
-    let mut msg_clone = msg.clone();
-
-    let fut = CallFuture::new(client, 100000, id * 100000);
-
+    let max_calls = 5000;
+    let fut = CallFuture::new(client, max_calls, id * max_calls);
     fut.wait();
+
     //client.call(msg.clone());
-    println!("Done sending!", );
+    println!("Done sending!");
 
     //std::thread::sleep(std::time::Duration::from_secs(60));
     Ok(())
 }
 
 fn run_multiple_client() -> errors::Result<()> {
-    let addr = "127.0.0.1:12345".parse().unwrap();
+    //let addr = "127.0.0.1:12345".parse().unwrap();
+    let addr = "172.16.21.109:12345".parse().unwrap();
     let client = client::Client::new(addr)?;
 
     let start = std::time::Instant::now();
