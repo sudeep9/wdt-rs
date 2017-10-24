@@ -1,61 +1,129 @@
 
 use std::net::SocketAddr;
 use std::io;
-use tokio_core::reactor::Core;
+use std::rc::Rc;
+use std::cell::RefCell;
+use std;
+use tokio_core::reactor::{Core};
 use tokio_core::net::TcpStream;
-use futures::Future;
-use tokio_io;
-use tokio_io::codec::{Encoder, Decoder};
-use common::codec;
-use bytes;
+use futures::{Future, Sink, Stream};
+use tokio_io::{AsyncRead};
+use tokio_io::codec::{FramedRead, FramedWrite};
+use common::{codec};
+use futures;
+use futures::sync::mpsc::{channel, Sender};
+use futures::sync::oneshot;
+use std::collections::HashMap;
 
+struct Payload {
+    req: codec::RevRequest,
+    rsptx: oneshot::Sender<codec::RevRequest>
+}
+
+#[derive(Clone)]
 pub struct Client {
-    pub stream: TcpStream,
-    pub core: Core
+    tx: Sender<Payload>,
 }
 
 impl Client {
-    pub fn connect(addr: &SocketAddr) -> io::Result<Client> {
-        let mut core = Core::new().unwrap();
-        let handle = core.handle();
-
-        let fut = TcpStream::connect(&addr, &handle).and_then(|stream|{
-            Ok(stream)
-        });
-
-        let stream = core.run(fut)?;
+    pub fn new(addr: SocketAddr) -> io::Result<Self> {
+        let val = Client::spawn_io_thread(addr)?;        
         Ok(Client{
-            stream: stream,
-            core: core
-        }) 
+            tx: val,
+        })
     }
 
-    pub fn sync_call(&mut self, msg: codec::RevRequest) -> io::Result<()>{
-        let mut c = codec::RevCodec;
+    pub fn call(&self, msg_clone: codec::RevRequest) -> oneshot::Receiver<codec::RevRequest> {
+        let (rsptx, rsprx) = oneshot::channel::<codec::RevRequest>();
+        let p = Payload{
+            req: msg_clone,
+            rsptx: rsptx
+        };
 
-        let mut buf = bytes::BytesMut::new();
-        buf.reserve(1024);
-        c.encode(msg, &mut buf)?;
+        let tx = self.tx.clone();
+        let _res = tx.send(p).wait();
+
+        rsprx
         
-        let fut = tokio_io::io::write_all(&self.stream, buf).and_then(|(s, b)|{
-            tokio_io::io::read(s, b).and_then(|(_, mut b, _)|{
-                let mut cd = codec::RevCodec;
-                cd.decode(&mut b).and_then(|rsp|{
-                    if rsp.is_some() {
-                        let m = rsp.unwrap();
-                        println!("id = {}, data = {}", m.reqid, m.data);
-                    }
-                    Ok(())
-                })
-            })
+        /*
+        rsprx.map(|n|{
+            println!("response id = {}, data = {}", n.reqid, n.data);
+        }).wait();
+        */
+    }
+
+    fn spawn_io_thread(addr: SocketAddr) -> io::Result<Sender<Payload>> {
+        let (tx, rx) = channel::<Payload>(2);
+
+        println!("Spawing io thread");
+
+        let _th = std::thread::spawn(move || -> io::Result<()>{
+            let mut core = Core::new().unwrap();
+            println!("Creating core");
+            let handle = core.handle();
+
+            let reqmap = Rc::new(RefCell::new(HashMap::new()));
+            //let reqmap: Rc<HashMap::<u32, oneshot::Sender<codec::RevRequest>>> = Rc::new(HashMap::new());
+
+            let conn_fut = TcpStream::connect(&addr, &handle).and_then(|stream|{
+                Ok(stream)
+            });
+
+            println!("About to connect");
+            let stream = core.run(conn_fut)?;
+            println!("Connected");
+
+            let (rd, wr) = stream.split();
+            let fw = FramedWrite::new(wr, codec::RevCodec); 
+            let fr = FramedRead::new(rd, codec::RevCodec); 
+
+            let map_clone = reqmap.clone();
+            let work_stream = rx.then(move |val| -> io::Result<codec::RevRequest>{
+                let p = val.ok().unwrap();
+
+                let mut map = map_clone.as_ref().borrow_mut();
+                map.insert(p.req.reqid, p.rsptx);
+
+                Ok(p.req)
+            });
+
+            let req_stream = fw.send_all(work_stream).and_then(|_f| {
+                println!("sent");
+                Ok(())
+            }).map_err(|_e|{
+            });
+
+            handle.spawn(req_stream);
+
+            let map_clone = reqmap.clone();
+            let read_stream = fr.and_then(move |msg|{
+                //println!("rsp id = {}, data = {}", msg.reqid, msg.data);
+                let mut map = map_clone.as_ref().borrow_mut();
+                match map.remove(&msg.reqid) {
+                    Some(tx) => {
+                        match tx.send(msg) {
+                            Ok(_) => {},
+                            Err(_) => {println!("rsp not sent");}
+                        }
+                    },
+                    None => {println!("## id = {}, data len = {}", msg.reqid, msg.data.len());}
+                };
+                Ok(())
+            });
+
+            let in_stream = read_stream.for_each(|_n|{
+                futures::future::result::<(), io::Error>(Ok(()))
+            }).map_err(|e|{
+                println!("err = {}", e);
+            });
+
+            handle.spawn(in_stream);
+
+            core.run(futures::future::empty::<(), io::Error>())?;
+
+            Ok(())
         });
 
-        self.core.run(fut)
+        Ok(tx.clone())
     }
-
-/*
-    pub fn get_addr_ref<'a>(&'a self) -> &'a SocketAddr{
-        &self.addr
-    }
-*/
 }

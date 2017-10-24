@@ -13,6 +13,9 @@ fn main() {
     let addr = "0.0.0.0:12345".parse().unwrap();
 
     let srv = server::Server::new(addr);
-    srv.serve();
+    srv.serve().err().and_then(|e|{
+        println!("Server shutdown with error: {}", e);
+        Some(())
+    });
 }
 
