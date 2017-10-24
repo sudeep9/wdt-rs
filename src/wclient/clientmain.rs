@@ -14,7 +14,6 @@ extern crate bytes;
 extern crate tokio_io;
 extern crate tokio_core;
 extern crate threadpool;
-extern crate flate2;
 
 mod client;
 mod errors;
@@ -37,6 +36,8 @@ struct CallFuture {
     //rsp_map: HashMap<usize, oneshot::Receiver<codec::RevRequest>>,
     rsp_map: HashMap<usize, Box<Future<Item=(), Error=()>>>,
     //tid: String,
+    srcbuf: Vec<u8>,
+
 }
 
 impl CallFuture {
@@ -49,6 +50,7 @@ impl CallFuture {
             rsp_count: std::rc::Rc::new(std::cell::RefCell::new(0)),
             rsp_map: HashMap::new(),
             //tid: utils::get_threadid(),
+            srcbuf: utils::random_buf(4 * 1024 * 1024 as usize),
         }
     }
 
@@ -83,16 +85,18 @@ impl Future for CallFuture {
     type Error = io::Error;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        //println!("polling");
         let rsp_count = *(self.rsp_count.as_ref().borrow());
         if rsp_count % 1000 == 0 {
             println!("s = {}, r = {}", self.sent_count, rsp_count);
         }
         if self.sent_count < self.n {
             if self.sent_count - rsp_count < 50 {
+                let srcbuf = vec![1 as u8; 4 * 1024 * 1024];
+                let mut cbuf: Vec<u8> = Vec::with_capacity(srcbuf.len());
+                utils::compress_buf(&srcbuf, &mut cbuf);
                 let msg = codec::RevRequest{
                     reqid: self.reqid,
-                    data: vec![1 as u8; 4 * 1024 * 1024], 
+                    data: srcbuf,
                 };
 
                 let rsp_count = self.rsp_count.clone();
@@ -111,6 +115,7 @@ impl Future for CallFuture {
 
                 self.reqid += 1;
                 self.sent_count += 1;
+                futures::task::current().notify();
             }
         }else{
             if self.sent_count == rsp_count {
@@ -124,7 +129,7 @@ impl Future for CallFuture {
 
 
 fn send_val(id: u32, client: client::Client) -> errors::Result<()> {
-    let max_calls = 2000;
+    let max_calls = 1250;
     let fut = CallFuture::new(client, max_calls, id * max_calls);
     let _ = fut.wait();
 
@@ -140,7 +145,7 @@ fn run_multiple_client() -> errors::Result<()> {
     let start = std::time::Instant::now();
 
     let pool = threadpool::ThreadPool::new(5);
-    for i in 0..1 {
+    for i in 0..4 {
         let client = client.clone();
         pool.execute(move ||{
             //let _ = start_chat().map_err(|e|{ 

@@ -54,7 +54,7 @@ impl Client {
     }
 
     fn spawn_io_thread(addr: SocketAddr) -> io::Result<Sender<Payload>> {
-        let (tx, rx) = channel::<Payload>(10);
+        let (tx, rx) = channel::<Payload>(50);
 
         println!("Spawing io thread");
 

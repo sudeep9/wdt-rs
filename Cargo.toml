@@ -4,11 +4,11 @@ version = "0.1.0"
 authors = ["Sudeep Jathar <sudeep.jathar@gmail.com>"]
 
 [[bin]]
-name = "wserver"
+name = "wdtserver"
 path = "src/wserver/srvmain.rs"
 
 [[bin]]
-name = "wclient"
+name = "wdtclient"
 path = "src/wclient/clientmain.rs"
 
 [lib]
@@ -31,3 +31,6 @@ thread-id = "3.2.0"
 futures-cpupool = "0.1.6"
 byteorder = "1.1.0"
 flate2 = { version = "0.2", features = ["zlib"], default-features = false }
+
+[features]
+test = []
