@@ -128,7 +128,7 @@ impl Future for CallFuture {
                 self.chunk(1024 * 1024 as usize);
                 let tmp = self.srcbuf.as_slice();
                 let srcbuf = &tmp[..byte_count];
-                let mut cbuf: Vec<u8> = Vec::with_capacity(srcbuf.len());
+                let mut cbuf = vec![0 as u8; self.srcbuf.len()];
                 utils::compress_buf(&srcbuf, &mut cbuf);
                 let msg = codec::RevRequest{
                     reqid: self.reqid,
@@ -166,7 +166,8 @@ impl Future for CallFuture {
 
 fn send_val(id: u32, client: client::Client) -> errors::Result<()> {
     let max_calls = 1250;
-    let path = path::Path::new("/Users/sudeepjathar/VirtualBox VMs/dev_ubuntu14/dev_ubuntu14.vdi");
+    //let path = path::Path::new("/Users/sudeepjathar/VirtualBox VMs/dev_ubuntu14/dev_ubuntu14.vdi");
+    let path = path::Path::new("/home/sudeep/work/file.in");
     let fut = CallFuture::new(client, &path, max_calls, id * max_calls);
     let _ = fut.wait();
 
@@ -175,8 +176,8 @@ fn send_val(id: u32, client: client::Client) -> errors::Result<()> {
 }
 
 fn run_multiple_client() -> errors::Result<()> {
-    let addr = "127.0.0.1:12345".parse().unwrap();
-    //let addr = "172.16.21.109:12345".parse().unwrap();
+    //let addr = "127.0.0.1:12345".parse().unwrap();
+    let addr = "172.16.21.109:12345".parse().unwrap();
     let client = client::Client::new(addr)?;
 
     let start = std::time::Instant::now();
