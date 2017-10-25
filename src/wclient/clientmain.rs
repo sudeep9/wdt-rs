@@ -25,7 +25,8 @@ use futures::{Poll, Async};
 use std::ops::Sub;
 use std::io;
 use std::collections::HashMap;
-
+use std::{fs, path};
+use std::io::Read;
 
 struct CallFuture {
     client: client::Client,
@@ -36,12 +37,17 @@ struct CallFuture {
     //rsp_map: HashMap<usize, oneshot::Receiver<codec::RevRequest>>,
     rsp_map: HashMap<usize, Box<Future<Item=(), Error=()>>>,
     //tid: String,
+    src: fs::File,
     srcbuf: Vec<u8>,
-
+    read_done: bool,
 }
 
 impl CallFuture {
-    fn new(c: client::Client, n: u32, reqid_start: u32) -> Self {
+    fn new(c: client::Client, srcfile: &path::Path, n: u32, reqid_start: u32) -> Self {
+        let f = fs::File::open(srcfile).unwrap();
+        let meta = f.metadata().unwrap();
+        println!("file size = {}", meta.len());
+
         CallFuture {
             client: c,
             n: n,
@@ -50,7 +56,9 @@ impl CallFuture {
             rsp_count: std::rc::Rc::new(std::cell::RefCell::new(0)),
             rsp_map: HashMap::new(),
             //tid: utils::get_threadid(),
-            srcbuf: utils::random_buf(4 * 1024 * 1024 as usize),
+            src: f,
+            srcbuf: vec![0 as u8; 4 * 1024 * 1024],
+            read_done: false,
         }
     }
 
@@ -74,9 +82,19 @@ impl CallFuture {
 
         if found {
             self.rsp_map.remove(&done_id);
-        } 
+        }
+
+        let rsp_count = *(self.rsp_count.as_ref().borrow());
+        if self.read_done && rsp_count < self.sent_count {
+            futures::task::current().notify();
+        }
 
         Ok(Async::NotReady)
+    }
+
+    fn read_buf(&mut self) -> std::io::Result<usize> {
+        let count = self.src.read(self.srcbuf.as_mut_slice())?;
+        Ok(count)
     }
 }
 
@@ -89,14 +107,21 @@ impl Future for CallFuture {
         if rsp_count % 1000 == 0 {
             println!("s = {}, r = {}", self.sent_count, rsp_count);
         }
-        if self.sent_count < self.n {
+        if !self.read_done {
             if self.sent_count - rsp_count < 50 {
-                let srcbuf = vec![1 as u8; 4 * 1024 * 1024];
+                let byte_count = self.read_buf()?;
+                if byte_count == 0 {
+                    self.read_done = true;
+                    futures::task::current().notify();
+                    return Ok(Async::NotReady);
+                }
+                let tmp = self.srcbuf.as_slice();
+                let srcbuf = &tmp[..byte_count];
                 let mut cbuf: Vec<u8> = Vec::with_capacity(srcbuf.len());
                 utils::compress_buf(&srcbuf, &mut cbuf);
                 let msg = codec::RevRequest{
                     reqid: self.reqid,
-                    data: srcbuf,
+                    data: Vec::from(srcbuf),
                 };
 
                 let rsp_count = self.rsp_count.clone();
@@ -130,7 +155,8 @@ impl Future for CallFuture {
 
 fn send_val(id: u32, client: client::Client) -> errors::Result<()> {
     let max_calls = 1250;
-    let fut = CallFuture::new(client, max_calls, id * max_calls);
+    let path = path::Path::new("/Users/sudeepjathar/VirtualBox VMs/dev_ubuntu14/dev_ubuntu14.vdi");
+    let fut = CallFuture::new(client, &path, max_calls, id * max_calls);
     let _ = fut.wait();
 
     println!("Done sending!");
@@ -144,8 +170,8 @@ fn run_multiple_client() -> errors::Result<()> {
 
     let start = std::time::Instant::now();
 
-    let pool = threadpool::ThreadPool::new(5);
-    for i in 0..4 {
+    let pool = threadpool::ThreadPool::new(8);
+    for i in 0..1 {
         let client = client.clone();
         pool.execute(move ||{
             //let _ = start_chat().map_err(|e|{ 
