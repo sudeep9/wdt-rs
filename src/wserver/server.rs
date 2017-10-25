@@ -57,6 +57,7 @@ impl Server {
         let client_proc = connections.and_then(|(non_tls_socket, _)|{
             println!("new connection");
             let socket = self.wrap_socket(non_tls_socket)?;
+            println!("socket wrapped");
 
             let (rd, wr) = socket.split();
 
