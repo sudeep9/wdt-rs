@@ -96,6 +96,16 @@ impl CallFuture {
         let count = self.src.read(self.srcbuf.as_mut_slice())?;
         Ok(count)
     }
+
+    fn chunk(&self, chunk_size: usize) {
+        let srcbuf = self.srcbuf.as_slice();
+
+        let mut itr = srcbuf.chunks(chunk_size);
+        for chunk in itr {
+            let _cksum = utils::sha1(chunk);
+        }
+
+    }
 }
 
 impl Future for CallFuture {
@@ -115,13 +125,14 @@ impl Future for CallFuture {
                     futures::task::current().notify();
                     return Ok(Async::NotReady);
                 }
+                self.chunk(1024 * 1024 as usize);
                 let tmp = self.srcbuf.as_slice();
                 let srcbuf = &tmp[..byte_count];
                 let mut cbuf: Vec<u8> = Vec::with_capacity(srcbuf.len());
                 utils::compress_buf(&srcbuf, &mut cbuf);
                 let msg = codec::RevRequest{
                     reqid: self.reqid,
-                    data: Vec::from(srcbuf),
+                    data: cbuf
                 };
 
                 let rsp_count = self.rsp_count.clone();

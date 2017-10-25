@@ -6,6 +6,7 @@ use rand;
 use thread_id;
 use flate2::Compression;
 use flate2::write::ZlibEncoder;
+use openssl;
 
 pub fn init_logging(filename: &str) {
     CombinedLogger::init(
@@ -40,6 +41,11 @@ pub fn random_buf(len: usize) -> Vec<u8> {
 pub fn get_threadid() -> String {
     format!("{}", thread_id::get())
 }
+
+pub fn sha1(buf: &[u8]) -> [u8; 20] {
+    return openssl::sha::sha1(buf)
+}
+
 
 pub fn compress_buf(buf: &[u8], cbuf: &mut Vec<u8>) -> std::io::Result<()> {
     let mut e = ZlibEncoder::new(cbuf, Compression::Default);

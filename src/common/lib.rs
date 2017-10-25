@@ -14,6 +14,7 @@ extern crate thread_id;
 extern crate byteorder;
 extern crate flate2;
 extern crate test;
+extern crate openssl;
 
 pub mod utils;
 pub mod request;
