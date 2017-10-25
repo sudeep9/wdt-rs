@@ -2,7 +2,10 @@
 use std::fs;
 use std::path::Path;
 use std::io::Read;
-use native_tls::{Pkcs12, TlsAcceptor};
+use native_tls::{Pkcs12, TlsAcceptor, TlsConnector};
+use native_tls;
+use tokio_core;
+use tokio_tls;
 use errors::*;
 
 
@@ -26,6 +29,13 @@ pub fn new_tls_acceptor(certfile: &Path, passwd: &str) -> Result<TlsAcceptor> {
     let acceptor = builder.build()?;
 
     Ok(acceptor)
+}
+
+pub fn new_tls_connect() -> Result<TlsConnector> {
+    let builder = TlsConnector::builder()?;
+    let connector = builder.build()?;
+
+    Ok(connector)
 }
 
 #[cfg(test)]

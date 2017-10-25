@@ -9,11 +9,12 @@ use tokio_core::net::TcpStream;
 use futures::{Future, Sink, Stream};
 use tokio_io::{AsyncRead};
 use tokio_io::codec::{FramedRead, FramedWrite};
-use common::{codec};
+use common::{codec, ssl};
 use futures;
 use futures::sync::mpsc::{channel, Sender};
 use futures::sync::oneshot;
 use std::collections::HashMap;
+use tokio_tls::TlsConnectorExt;
 
 struct Payload {
     req: codec::RevRequest,
@@ -66,13 +67,20 @@ impl Client {
             let reqmap = Rc::new(RefCell::new(HashMap::new()));
             //let reqmap: Rc<HashMap::<u32, oneshot::Sender<codec::RevRequest>>> = Rc::new(HashMap::new());
 
-            let conn_fut = TcpStream::connect(&addr, &handle).and_then(|stream|{
-                Ok(stream)
+            let host = format!("{}", addr.ip());
+            let conn_fut = TcpStream::connect(&addr, &handle).and_then(move |non_tls_stream|{
+                let connector = ssl::new_tls_connect().unwrap();
+                connector.connect_async(&host, non_tls_stream).map_err(|e|{
+                    io::Error::new(io::ErrorKind::Other, format!("{}", e))
+                }).and_then(|stream|{
+                    Ok(stream)
+                })
             });
 
-            println!("About to connect");
+
+            println!("SSL handshake - starting");
             let stream = core.run(conn_fut)?;
-            println!("Connected");
+            println!("SSL handshake - done");
 
             let (rd, wr) = stream.split();
             let fw = FramedWrite::new(wr, codec::RevCodec); 

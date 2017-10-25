@@ -14,6 +14,8 @@ extern crate bytes;
 extern crate tokio_io;
 extern crate tokio_core;
 extern crate threadpool;
+extern crate tokio_tls;
+extern crate native_tls;
 
 mod client;
 mod errors;
@@ -27,6 +29,8 @@ use std::io;
 use std::collections::HashMap;
 use std::{fs, path};
 use std::io::Read;
+use tokio_tls::{TlsConnectorExt, TlsStream};
+use native_tls::TlsConnector;
 
 struct CallFuture {
     client: client::Client,
