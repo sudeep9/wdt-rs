@@ -15,8 +15,10 @@ extern crate byteorder;
 extern crate flate2;
 extern crate test;
 extern crate openssl;
+extern crate native_tls;
 
 pub mod utils;
 pub mod request;
 pub mod errors;
 pub mod codec;
+pub mod ssl;

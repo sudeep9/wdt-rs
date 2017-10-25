@@ -1,6 +1,7 @@
 
 use rmpv;
 use std;
+use native_tls;
 
 error_chain!{
     types {
@@ -11,5 +12,6 @@ error_chain!{
         EncodeError(rmpv::encode::Error);
         DecodeError(rmpv::decode::Error);
         Io(std::io::Error);
+        TlsError(native_tls::Error);
     }
 }

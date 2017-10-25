@@ -5,6 +5,8 @@ extern crate tokio_io;
 extern crate bytes;
 extern crate common;
 extern crate futures_cpupool;
+extern crate native_tls;
+extern crate tokio_tls;
 
 mod server;
 
