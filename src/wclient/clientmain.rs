@@ -41,7 +41,7 @@ struct CallFuture {
     reqid: u32,
     rsp_count: std::rc::Rc<std::cell::RefCell<u32>>,
     //rsp_map: HashMap<usize, oneshot::Receiver<codec::RevRequest>>,
-    rsp_map: HashMap<usize, Box<Future<Item=(), Error=()>>>,
+    rsp_map: HashMap<usize, Box<Future<Item=(), Error=io::Error>>>,
     //tid: String,
     src: fs::File,
     srcbuf: Vec<u8>,
@@ -124,7 +124,7 @@ impl Future for CallFuture {
             println!("s = {}, r = {}", self.sent_count, rsp_count);
         }
         if !self.read_done {
-            if self.sent_count - rsp_count < 5 {
+            if self.sent_count - rsp_count < 10 {
                 let byte_count = self.read_buf()?;
                 if byte_count == 0 {
                     self.read_done = true;
@@ -142,15 +142,13 @@ impl Future for CallFuture {
                 };
 
                 let rsp_count = self.rsp_count.clone();
-                let fut = self.client.call(msg).then(move |res|{
-                    let _ = res.and_then(|_m|{
-                        //println!("< id = {}", _m.reqid);
-                        Ok(())
-                    });
+                println!("calling");
+                let fut = self.client.call(msg).and_then(move |m|{
                     let mut count = rsp_count.as_ref().borrow_mut();
                     *count += 1;
-                    let r: std::result::Result<(),()> = Ok(());
-                    r
+                    Ok(())
+                }).map_err(|e|{
+                    io::Error::new(io::ErrorKind::Other, format!("{:?}", e))
                 });
 
                 self.rsp_map.insert(self.reqid as usize, Box::new(fut));
@@ -158,9 +156,12 @@ impl Future for CallFuture {
                 self.reqid += 1;
                 self.sent_count += 1;
                 futures::task::current().notify();
+            }else{
+                println!("# s = {}, r = {}", self.sent_count, rsp_count);
             }
         }else{
             if self.sent_count == rsp_count {
+                println!(">> s = {}, r = {}", self.sent_count, rsp_count);
                 return Ok(Async::Ready(()));
             }
         }
@@ -175,9 +176,14 @@ fn send_val(id: u32, client: client::Client) -> errors::Result<()> {
     let path = path::Path::new("/Users/sudeepjathar/VirtualBox VMs/dev_ubuntu14/dev_ubuntu14.vdi");
     //let path = path::Path::new("/home/sudeep/work/file.in");
     let fut = CallFuture::new(client, &path, max_calls, id * max_calls);
-    let _ = fut.wait();
+    fut.wait().or_else(|e|{
+        println!("Client loop done with error: {}", e);
+        Err(e)
+    }).and_then(|_|{
+        println!("Client loop done!");
+        Ok(())
+    });
 
-    println!("Done sending!");
     Ok(())
 }
 
@@ -215,8 +221,8 @@ fn tls_client_conn() -> errors::Result<()> {
 }
 
 fn run() -> errors::Result<()> {
-    tls_client_conn()
-    //run_multiple_client()
+    //tls_client_conn()
+    run_multiple_client()
     //let _ = start_chat().or_else(|e| -> Result<(),()>{
     //    println!("err: {}", e);
     //    Ok(())

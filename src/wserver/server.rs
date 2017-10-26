@@ -2,7 +2,7 @@
 
 use std;
 use std::net::SocketAddr;
-use futures::{Sink, Future, Stream};
+use futures::{Poll, Async, task, Sink, Future, Stream};
 use futures_cpupool::{CpuPool};
 use tokio_io::{AsyncRead};
 use tokio_io::codec::{FramedRead, FramedWrite};
@@ -37,13 +37,13 @@ impl Server {
         return &self.addr;
     }
 
-    pub fn serve(&self) -> io::Result<()> {
+    pub fn serve2(&self) -> io::Result<()> {
         let mut core = Core::new().unwrap();
 
         let listener = TcpListener::bind(&self.addr, &core.handle()).unwrap();
 
         let certfile = &std::path::Path::new("./certs/wdt.pfx");
-        let tls_acceptor = ssl::new_tls_acceptor(certfile, "mypass").map_err(|e|{
+        let tls_acceptor = ssl::new_tls_acceptor(certfile, "1234").map_err(|e|{
             io::Error::new(io::ErrorKind::Other, format!("{}", e))
         }).unwrap();
 
@@ -78,23 +78,38 @@ impl Server {
         core.run(server)
     }
 
-    pub fn serve2(&self) -> io::Result<()> {
+    pub fn serve(&self) -> io::Result<()> {
         let mut core = Core::new().unwrap();
+
+        let certfile = &std::path::Path::new("./certs/wdt.pfx");
+        let tls_acceptor = ssl::new_tls_acceptor(certfile, "1234").map_err(|e|{
+            io::Error::new(io::ErrorKind::Other, format!("{}", e))
+        }).unwrap();
+
 
         let listener = TcpListener::bind(&self.addr, &core.handle()).unwrap();
 
         let connections = listener.incoming();
-        let client_proc = connections.and_then(|(socket, _)|{
+
+        let tls_acceptor_clone = tls_acceptor.clone();
+        let handshake = connections.and_then(move |(socket, _)|{
             println!("new connection");
+            tls_acceptor_clone.accept_async(socket).map_err(|e|{
+                io::Error::new(io::ErrorKind::Other, format!("Acceptor = {}", e))
+            })
+        });
+
+        let client_proc = handshake.and_then(|socket|{
+            println!("SSL Handshake done");
             let (rd, wr) = socket.split();
 
             let fw = FramedWrite::new(wr, codec::RevCodec); 
             let fr = FramedRead::new(rd, codec::RevCodec); 
 
             let processed = fr.and_then(|mut m|{
+                println!("id = {}, data = {}", m.reqid, m.data.len());
                 self.work.spawn_fn(||{
                     m.data.reverse();
-                    println!("id = {}, data = {}", m.reqid, m.data.len());
                     Ok(m)
                 })
             });

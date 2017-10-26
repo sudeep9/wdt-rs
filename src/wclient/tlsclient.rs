@@ -40,8 +40,9 @@ impl Client {
         println!("Connecting to host: {}", host);
         let tls_handshake = plain_conn.and_then(|plain_socket|{
             //let connector = ssl::new_tls_connect(Some((&self.certfile, "1234")), Some(&std::path::Path::new("./certs/public.der"))).unwrap();
-            let connector = ssl::new_tls_connect(None, Some(&std::path::Path::new("./certs/public.der"))).unwrap();
-            //let connector = ssl::new_tls_connect(None, None).unwrap();
+            //let connector = ssl::new_tls_connect(Some((&self.certfile, "1234")), ::Path::new("./certs/public.der"))).unwrap();
+            //let connector = ssl::new_tls_connect(None, Some(&std::path::Path::new("./certs/public.der"))).unwrap();
+            let connector = ssl::new_tls_connect(None, None).unwrap();
             //let connector = ssl::new_tls_connect(&self.certfile, "1234").unwrap();
             connector.danger_connect_async_without_providing_domain_for_certificate_verification_and_server_name_indication(plain_socket)
             //connector.connect_async("127.0.0.1", plain_socket)

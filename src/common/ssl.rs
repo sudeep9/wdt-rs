@@ -3,7 +3,7 @@ use std::fs;
 use std::path::Path;
 use std::io::Read;
 use native_tls::{Pkcs12, TlsAcceptor, TlsConnector, Certificate};
-use native_tls::backend::openssl::TlsConnectorBuilderExt;
+//use native_tls::backend::openssl::TlsConnectorBuilderExt;
 use tokio_core;
 use tokio_tls;
 use openssl::ssl::SslVerifyMode;
@@ -60,10 +60,12 @@ pub fn new_tls_connect(certopt: Option<(&Path, &str)>, root_cert: Option<&Path>)
         builder.add_root_certificate(cert)?;
     }
 
+    /*
     {
         let ssl_builder = builder.builder_mut().builder_mut();
         ssl_builder.set_verify(SslVerifyMode::empty());
     }
+    */
 
 
     let connector = builder.build()?;
