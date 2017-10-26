@@ -3,9 +3,10 @@ use std::fs;
 use std::path::Path;
 use std::io::Read;
 use native_tls::{Pkcs12, TlsAcceptor, TlsConnector, Certificate};
-use native_tls;
+use native_tls::backend::openssl::TlsConnectorBuilderExt;
 use tokio_core;
 use tokio_tls;
+use openssl::ssl::SslVerifyMode;
 use errors::*;
 
 pub fn read_x509_cert(certfile: &Path) -> Result<Certificate> {
@@ -58,6 +59,12 @@ pub fn new_tls_connect(certopt: Option<(&Path, &str)>, root_cert: Option<&Path>)
         let cert = read_x509_cert(root_cert.unwrap())?;
         builder.add_root_certificate(cert)?;
     }
+
+    {
+        let ssl_builder = builder.builder_mut().builder_mut();
+        ssl_builder.set_verify(SslVerifyMode::empty());
+    }
+
 
     let connector = builder.build()?;
 
