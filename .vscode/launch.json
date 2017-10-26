@@ -8,7 +8,7 @@
         "type": "lldb",
         "request": "launch",
         "name": "server",
-        "program": "${workspaceRoot}/target/debug/wserver",
+        "program": "${workspaceRoot}/target/debug/wdtserver",
         "args": [],
         "cwd": "${workspaceRoot}"
     },

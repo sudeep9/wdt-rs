@@ -55,7 +55,7 @@ impl Client {
     }
 
     fn spawn_io_thread(addr: SocketAddr) -> io::Result<Sender<Payload>> {
-        let (tx, rx) = channel::<Payload>(50);
+        let (tx, rx) = channel::<Payload>(1);
 
         println!("Spawing io thread");
 
@@ -68,13 +68,8 @@ impl Client {
             //let reqmap: Rc<HashMap::<u32, oneshot::Sender<codec::RevRequest>>> = Rc::new(HashMap::new());
 
             let host = format!("{}", addr.ip());
-            let conn_fut = TcpStream::connect(&addr, &handle).and_then(move |non_tls_stream|{
-                let connector = ssl::new_tls_connect().unwrap();
-                connector.connect_async(&host, non_tls_stream).map_err(|e|{
-                    io::Error::new(io::ErrorKind::Other, format!("{}", e))
-                }).and_then(|stream|{
-                    Ok(stream)
-                })
+            let conn_fut = TcpStream::connect(&addr, &handle).and_then(move |stream|{
+                Ok(stream)
             });
 
 
@@ -106,7 +101,7 @@ impl Client {
 
             let map_clone = reqmap.clone();
             let read_stream = fr.and_then(move |msg|{
-                //println!("## rsp id = {}, data = {}", msg.reqid, msg.data.len());
+                println!("## rsp id = {}, data = {}", msg.reqid, msg.data.len());
                 let mut map = map_clone.as_ref().borrow_mut();
                 match map.remove(&msg.reqid) {
                     Some(tx) => {

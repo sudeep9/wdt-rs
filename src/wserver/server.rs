@@ -11,6 +11,7 @@ use tokio_core::reactor::Core;
 use common::{codec, ssl};
 use std::io;
 use tokio_tls::{TlsStream, TlsAcceptorExt};
+use std::sync::Arc;
 
 pub struct Server {
     addr: SocketAddr,
@@ -36,29 +37,55 @@ impl Server {
         return &self.addr;
     }
 
-    pub fn wrap_socket(&self, s: TcpStream) -> io::Result<TlsStream<TcpStream>> {
-        let certfile = &std::path::Path::new("./certs/wdt.pfx");
-        let acc = ssl::new_tls_acceptor(certfile, "").map_err(|e|{
-            io::Error::new(io::ErrorKind::Other, format!("{}", e))
-        })?;
-        let socket = acc.accept_async(s).wait().map_err(|e|{
-            io::Error::new(io::ErrorKind::Other, format!("{}", e))
-        })?;
-
-        Ok(socket)
-    }
-
     pub fn serve(&self) -> io::Result<()> {
         let mut core = Core::new().unwrap();
 
         let listener = TcpListener::bind(&self.addr, &core.handle()).unwrap();
 
-        let connections = listener.incoming();
-        let client_proc = connections.and_then(|(non_tls_socket, _)|{
-            println!("new connection");
-            let socket = self.wrap_socket(non_tls_socket)?;
-            println!("socket wrapped");
+        let certfile = &std::path::Path::new("./certs/wdt.pfx");
+        let tls_acceptor = ssl::new_tls_acceptor(certfile, "mypass").map_err(|e|{
+            io::Error::new(io::ErrorKind::Other, format!("{}", e))
+        }).unwrap();
 
+        let connections = listener.incoming();
+
+        let tls_acceptor_clone = tls_acceptor.clone();
+        let handshake = connections.and_then(move |(plain_socket, _)|{
+            println!("new connection");
+            tls_acceptor_clone.accept_async(plain_socket).and_then(|socket|{
+                println!("SSL handshake done");
+                Ok(socket)
+            }).map_err(|e|{
+                io::Error::new(io::ErrorKind::Other, format!("Acceptor = {}", e))
+            })
+        });
+
+        let client_proc = handshake.then(|res|{
+            if res.is_err() {
+                println!("Error in client conn: {}", res.err().unwrap());
+                return Ok(0 as i32);
+            }
+
+            let socket = res.ok().unwrap();
+            let (rd, wr) = socket.split();
+            Ok(0 as i32)
+        });
+
+        let server = client_proc.for_each(|n|{
+            Ok(())
+        });
+
+        core.run(server)
+    }
+
+    pub fn serve2(&self) -> io::Result<()> {
+        let mut core = Core::new().unwrap();
+
+        let listener = TcpListener::bind(&self.addr, &core.handle()).unwrap();
+
+        let connections = listener.incoming();
+        let client_proc = connections.and_then(|(socket, _)|{
+            println!("new connection");
             let (rd, wr) = socket.split();
 
             let fw = FramedWrite::new(wr, codec::RevCodec); 
@@ -67,7 +94,7 @@ impl Server {
             let processed = fr.and_then(|mut m|{
                 self.work.spawn_fn(||{
                     m.data.reverse();
-                    //println!("id = {}, data = {}", m.reqid, m.data);
+                    println!("id = {}, data = {}", m.reqid, m.data.len());
                     Ok(m)
                 })
             });

@@ -18,6 +18,7 @@ extern crate tokio_tls;
 extern crate native_tls;
 
 mod client;
+mod tlsclient;
 mod errors;
 
 use common::utils;
@@ -25,6 +26,7 @@ use common::codec;
 use futures::{Future};
 use futures::{Poll, Async};
 use std::ops::Sub;
+use std::net::ToSocketAddrs;
 use std::io;
 use std::collections::HashMap;
 use std::{fs, path};
@@ -78,8 +80,8 @@ impl CallFuture {
                     found = true;
                     break;
                 },
-                Err(_) => {
-                    break;
+                Err(e) => {
+                    return Err(io::Error::new(io::ErrorKind::Other, format!("{:?}", e)));
                 }
             }
         }
@@ -122,7 +124,7 @@ impl Future for CallFuture {
             println!("s = {}, r = {}", self.sent_count, rsp_count);
         }
         if !self.read_done {
-            if self.sent_count - rsp_count < 50 {
+            if self.sent_count - rsp_count < 5 {
                 let byte_count = self.read_buf()?;
                 if byte_count == 0 {
                     self.read_done = true;
@@ -142,7 +144,7 @@ impl Future for CallFuture {
                 let rsp_count = self.rsp_count.clone();
                 let fut = self.client.call(msg).then(move |res|{
                     let _ = res.and_then(|_m|{
-                        //println!("< id = {}", m.reqid);
+                        //println!("< id = {}", _m.reqid);
                         Ok(())
                     });
                     let mut count = rsp_count.as_ref().borrow_mut();
@@ -170,8 +172,8 @@ impl Future for CallFuture {
 
 fn send_val(id: u32, client: client::Client) -> errors::Result<()> {
     let max_calls = 1250;
-    //let path = path::Path::new("/Users/sudeepjathar/VirtualBox VMs/dev_ubuntu14/dev_ubuntu14.vdi");
-    let path = path::Path::new("/home/sudeep/work/file.in");
+    let path = path::Path::new("/Users/sudeepjathar/VirtualBox VMs/dev_ubuntu14/dev_ubuntu14.vdi");
+    //let path = path::Path::new("/home/sudeep/work/file.in");
     let fut = CallFuture::new(client, &path, max_calls, id * max_calls);
     let _ = fut.wait();
 
@@ -180,8 +182,8 @@ fn send_val(id: u32, client: client::Client) -> errors::Result<()> {
 }
 
 fn run_multiple_client() -> errors::Result<()> {
-    //let addr = "127.0.0.1:12345".parse().unwrap();
-    let addr = "172.16.21.109:12345".parse().unwrap();
+    let addr = "127.0.0.1:12345".parse().unwrap();
+    //let addr = "172.16.21.109:12345".parse().unwrap();
     let client = client::Client::new(addr)?;
 
     let start = std::time::Instant::now();
@@ -203,8 +205,18 @@ fn run_multiple_client() -> errors::Result<()> {
     Ok(())    
 }
 
+fn tls_client_conn() -> errors::Result<()> {
+    let addr = "127.0.0.1:12345".parse().unwrap();
+    //let addr = "www.google.com:443".to_socket_addrs().unwrap().next().unwrap();
+    //let addr = "localhost:12345".to_socket_addrs().unwrap().next().unwrap();
+    let c = tlsclient::Client::new("./certs/wdt.pfx");
+    
+    c.connect(&addr)
+}
+
 fn run() -> errors::Result<()> {
-    run_multiple_client()
+    tls_client_conn()
+    //run_multiple_client()
     //let _ = start_chat().or_else(|e| -> Result<(),()>{
     //    println!("err: {}", e);
     //    Ok(())
